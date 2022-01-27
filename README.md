@@ -157,10 +157,24 @@ The client is a console application performing the following steps:
  - provides CLI to invoke API calls with the server.
  - produces necessary output.
 
-CLI usage examples:
+### Build and run
+
+Generate and build all components:
 ```bash
-$ export CLIENT_CERT="$HOME/.certs/userA.crt"
-$ export CLIENT_KEY="$HOME/.certs/userA.key"
+$ make gen-proto
+$ make gen-cert
+$ make
+```
+
+Start the server:
+```bash
+$ sudo ./server
+```
+
+Run the client(s). CLI usage examples:
+```bash
+$ export CLIENT_CERT="$HOME/.certs/client1.crt"
+$ export CLIENT_KEY="$HOME/.certs/client1.key"
 $ export CA_CERT="$HOME/.certs/ca.crt"
 
 $ ./client start ping 8.8.8.8
