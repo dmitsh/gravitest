@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/dmitsh/gravitest/proto";
+
+service Worker {
+  rpc StartProcess (StartProcessRequest) returns (JobId);
+  rpc GetProcessStatus (JobId) returns (Status);
+  rpc StreamOutput (JobId) returns (stream LogData) {}
+  rpc StopProcess (JobId) returns (Empty);
+}
+
+message JobId {
+  uint64 id = 1;
+}
+
+message Status {
+  enum ProcStatus {
+    StatusNotStarted = 0;
+    StatusRunning    = 1;
+    StatusStopped    = 2;
+  }
+  ProcStatus procStatus = 1;
+  int32      exitStatus = 2;
+  int32      signal     = 3;
+  string     error      = 4;
+}
+
+message StartProcessRequest {
+  string path = 1;
+  repeated string args = 2;
+}
+
+message LogData {
+  bytes data = 1;
+}
+
+message Empty{}
