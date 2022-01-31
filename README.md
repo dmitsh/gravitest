@@ -47,6 +47,16 @@ openssl x509 -req -in client1.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out 
 openssl x509 -req -in client2.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client2.crt -days 365
 ```
 
+The authorization is implemented by maintaining a key/value user table, where the key is the client ID (extracted from the client certificate), and the value is the bitmap of permitted API calls:
+```go
+const (
+	PermStart  = 0x01
+	PermStop   = 0x02
+	PermStatus = 0x04
+	PermStream = 0x08
+)
+```
+
 ### Library
 
 The library is the core of the server, which does the following:
@@ -63,7 +73,7 @@ The library is the core of the server, which does the following:
  - implements resource control for the processes.
  - generates UUID for processes (`github.com/google/uuid`).
  - maintains a process table, for both active and terminated processes. The key is process UUID. The values is a structure representing the process:
- ```
+ ```go
  type Process struct {
 	clientID string        // client ID retrieved from the client certificate
 	cmd      *exec.Cmd     // process object in Go
@@ -73,14 +83,7 @@ The library is the core of the server, which does the following:
  ```
 
 The library exposes singleton process manager object holding all aforementioned structures:
-```
-const (
-	PermStart  = 0x01
-	PermStop   = 0x02
-	PermStatus = 0x04
-	PermStream = 0x08
-)
-
+```go
 type ProcManager struct {
 	// process table [process UUID : Process]
 	procs     map[string]*Process
@@ -155,7 +158,7 @@ The client is a console application performing the following steps:
  - produces necessary output.
 
 CLI usage examples:
-```
+```bash
 $ export CLIENT_CERT="$HOME/.certs/userA.crt"
 $ export CLIENT_KEY="$HOME/.certs/userA.key"
 $ export CA_CERT="$HOME/.certs/ca.crt"
