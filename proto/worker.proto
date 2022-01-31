@@ -12,7 +12,7 @@ service Worker {
 }
 
 message JobId {
-  uint64 id = 1;
+  string id = 1;
 }
 
 message Status {
@@ -24,7 +24,6 @@ message Status {
   ProcStatus procStatus = 1;
   int32      exitStatus = 2;
   int32      signal     = 3;
-  string     error      = 4;
 }
 
 message StartProcessRequest {

@@ -96,16 +96,18 @@ type ProcManager struct {
 #### Resource control
 
 The control over compute, disk I/O and memory resources is provided by means of cgroups.
-When the library receives an API call to start a process, it will create the following files:
-- `/sys/fs/cgroup/cpu/worker-<UUID>/cpu.shares`. This file contains value that limit number of CPU share for the process.
-- `/sys/fs/cgroup/memory/worker-<UUID>/memory.limit_in_bytes`. This file contains value that limits the amount of the virtual and physical memory for the process.
-- `/sys/fs/cgroup/blkio/worker-<UUID>/blkio.throttle.read_bps_device`. This file contains list of block devices followed by a value that limits the read bandwidth rate for the process.
-- `/sys/fs/cgroup/blkio/worker-<UUID>/blkio.throttle.write_bps_device`. This file contains list of block devices followed by a value that limits the write bandwidth rate for the process.
-
-Once the process is successfully started, the library will create the following files, containing PID of that process (`process.cmd.Process.Pid`)
-- `/sys/fs/cgroup/cpu/worker-<UUID>/cgroup.procs`
-- `/sys/fs/cgroup/memory/worker-<UUID>/cgroup.procs`
-- `/sys/fs/cgroup/blkio/worker-<UUID>/cgroup.procs`
+When the library receives an API call to run a user command, it starts a utility program that:
+- clones itself with `syscall.SysProcAttr{Cloneflags: syscall.CLONE_NEWPID}`
+- creates the following files:
+  - `/sys/fs/cgroup/cpu/worker-<UUID>/cpu.shares`. This file contains value that limit number of CPU share for the process.
+  - `/sys/fs/cgroup/memory/worker-<UUID>/memory.limit_in_bytes`. This file contains value that limits the amount of the virtual and physical memory for the process.
+  - `/sys/fs/cgroup/blkio/worker-<UUID>/blkio.throttle.read_bps_device`. This file contains list of block devices followed by a value that limits the read bandwidth rate for the process.
+  - `/sys/fs/cgroup/blkio/worker-<UUID>/blkio.throttle.write_bps_device`. This file contains list of block devices followed by a value that limits the write bandwidth rate for the process.
+- creates the following files, containing its own PID (`os.Getpid()`):
+  - `/sys/fs/cgroup/cpu/worker-<UUID>/cgroup.procs`
+  - `/sys/fs/cgroup/memory/worker-<UUID>/cgroup.procs`
+  - `/sys/fs/cgroup/blkio/worker-<UUID>/cgroup.procs`
+- executes original user command
 
 ### API implementation
 
@@ -156,7 +158,7 @@ CLI usage examples:
 ```
 $ export CLIENT_CERT="$HOME/.certs/userA.crt"
 $ export CLIENT_KEY="$HOME/.certs/userA.key"
-$ export CA_CERT="$HOME/.certs/ca.cert"
+$ export CA_CERT="$HOME/.certs/ca.crt"
 
 $ ./client start ping 8.8.8.8
 Process UUID: 58e1f565-b1d0-436d-8c25-f453408c2514
@@ -179,7 +181,6 @@ $ ./client status 58e1f565-b1d0-436d-8c25-f453408c2514
 Process status: StatusStopped
 Exit status: -1
 Signal: 9
-Error: signal: killed
 
 $ ./client start ls
 Process UUID: f1e30391-9ddb-4578-a48c-b19a6584e79d
@@ -199,7 +200,6 @@ Process UUID: 5315aefe-0b81-462f-9fd3-666fc1482caa
 $ ./client status 5315aefe-0b81-462f-9fd3-666fc1482caa
 Process status: StatusStopped
 Exit status: 1
-Error: exit status 1
 
 $ ./client stream 5315aefe-0b81-462f-9fd3-666fc1482caa
 ls: /bad/name: No such file or directory
