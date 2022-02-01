@@ -43,7 +43,6 @@ func main() {
 
 	if err := runClient(cmd, args); err != nil {
 		exit(err)
-		fmt.Printf("error: %v\n", err)
 	}
 }
 

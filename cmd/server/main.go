@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"os"
@@ -71,6 +72,10 @@ type WorkerServer struct {
 }
 
 func (w *WorkerServer) StartProcess(ctx context.Context, req *proto.StartProcessRequest) (*proto.JobId, error) {
+	// check that user command is not empty
+	if len(req.GetPath()) == 0 {
+		return &proto.JobId{}, errors.New("no command to run")
+	}
 	clientID := getClientID(ctx)
 	log.Println("StartProcess: clientID:", clientID)
 	uid, err := w.procManager.StartProcess(clientID, req.GetPath(), req.GetArgs()...)
@@ -95,7 +100,7 @@ func (w *WorkerServer) StreamOutput(req *proto.JobId, srv proto.Worker_StreamOut
 	ctx := srv.Context()
 	clientID := getClientID(ctx)
 	log.Println("StreamOutput: clientID:", clientID)
-	buffer, err := w.procManager.StreamOutputFile(clientID, req.GetId())
+	buffer, err := w.procManager.StreamOutput(clientID, req.GetId())
 	if err != nil {
 		return err
 	}

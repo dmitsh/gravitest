@@ -3,7 +3,9 @@ package engine
 import (
 	"bytes"
 	"errors"
+	"log"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -31,7 +33,7 @@ type Process struct {
 	status   *proto.Status
 }
 
-// TRADEOFF
+// TRADE OFF
 // Due to time constrains I'm not implementing resilience in case the server crashes or restarts.
 // Ideally I should have process table and last generated UID persisted.
 type ProcManager struct {
@@ -41,9 +43,6 @@ type ProcManager struct {
 
 	// permission table [client ID : permission bitmap]
 	perm map[string]int
-
-	// process UID
-	uid string
 }
 
 func NewProcManager() *ProcManager {
@@ -103,21 +102,29 @@ func (m *ProcManager) StartProcess(clientID, exe string, args ...string) (string
 	m.addProcess(uid, proc)
 
 	go func() {
-		proc.cmd.Start()
-
+		err := proc.cmd.Start()
+		if err != nil {
+			log.Printf("failed to start %q : %v", strings.Join(append([]string{exe}, args...), " "), err)
+			return
+		}
 		m.procMutex.Lock()
 		proc.status.ProcStatus = proto.Status_StatusRunning
 		m.procMutex.Unlock()
 
-		proc.cmd.Wait()
-
+		err = proc.cmd.Wait()
 		m.procMutex.Lock()
 		proc.status.ProcStatus = proto.Status_StatusStopped
 
-		osStatus := proc.cmd.ProcessState.Sys().(syscall.WaitStatus)
-		proc.status.ExitStatus = int32(osStatus.ExitStatus())
-		if osStatus.Signaled() {
-			proc.status.Signal = int32(osStatus.Signal())
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			proc.status.ExitStatus = int32(exitErr.ProcessState.ExitCode())
+			if osStatus, ok := proc.cmd.ProcessState.Sys().(syscall.WaitStatus); ok && osStatus.Signaled() {
+				proc.status.Signal = int32(osStatus.Signal())
+			}
+		} else {
+			// TRADE OFF
+			// not an exit error: set the exit code to 1 and log the error
+			proc.status.ExitStatus = 1
+			log.Printf("failed to run %q : %v", strings.Join(append([]string{exe}, args...), " "), err)
 		}
 		m.procMutex.Unlock()
 	}()
@@ -154,7 +161,7 @@ func (m *ProcManager) StatusProcess(clientID, uid string) (*proto.Status, error)
 	return proc.status, nil
 }
 
-func (m *ProcManager) StreamOutputFile(clientID, uid string) (*bytes.Buffer, error) {
+func (m *ProcManager) StreamOutput(clientID, uid string) (*bytes.Buffer, error) {
 	if err := m.checkPermission(clientID, PermStream); err != nil {
 		return nil, err
 	}

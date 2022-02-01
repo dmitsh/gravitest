@@ -37,7 +37,6 @@ func main() {
 
 func start() error {
 	cmd := exec.Command("/proc/self/exe", append([]string{"cgr"}, os.Args[2:]...)...)
-	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -45,8 +44,7 @@ func start() error {
 		Cloneflags: syscall.CLONE_NEWPID,
 	}
 
-	cmd.Run()
-	os.Exit(cmd.ProcessState.Sys().(syscall.WaitStatus).ExitStatus())
+	check(cmd.Run())
 
 	return nil
 }
@@ -55,7 +53,6 @@ func cgr() error {
 	cgroupName := os.Args[2]
 	cgroupMemDir := filepath.Join("/sys/fs/cgroup/memory", cgroupName)
 	cgroupMemLimitFile := filepath.Join(cgroupMemDir, "memory.limit_in_bytes")
-	cgroupMemSwapLimitFile := filepath.Join(cgroupMemDir, "memory.swappiness")
 	cgroupMemProcsFile := filepath.Join(cgroupMemDir, "cgroup.procs")
 
 	cgroupCpuDir := filepath.Join("/sys/fs/cgroup/cpu", cgroupName)
@@ -73,9 +70,6 @@ func cgr() error {
 	if err := writeInt(cgroupMemLimitFile, rssLimit*1024*1024); err != nil {
 		return err
 	}
-	if err := writeInt(cgroupMemSwapLimitFile, 0); err != nil {
-		return err
-	}
 	// set CPU shares
 	if err := writeInt(cgroupCpuSharesFile, cpuShares); err != nil {
 		return err
@@ -89,16 +83,24 @@ func cgr() error {
 	}
 
 	cmd := exec.Command(os.Args[3], os.Args[4:]...)
-	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	cmd.Run()
-	os.Exit(cmd.ProcessState.Sys().(syscall.WaitStatus).ExitStatus())
+	check(cmd.Run())
 
 	return nil
 }
 
 func writeInt(path string, value int) error {
 	return ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", value)), 0755)
+}
+
+func check(err error) {
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			os.Exit(exitErr.ProcessState.ExitCode())
+		} else {
+			os.Exit(1)
+		}
+	}
 }
