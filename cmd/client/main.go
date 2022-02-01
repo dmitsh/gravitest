@@ -38,9 +38,6 @@ func main() {
 		exit(err)
 	}
 
-	fmt.Println("CLN cert:", clientCrtPath, "CLN key:", clientKeyPath, "CA cert:", caKeyPath)
-	fmt.Println(">", cmd, args)
-
 	if err := runClient(cmd, args); err != nil {
 		exit(err)
 	}

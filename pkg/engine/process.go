@@ -115,16 +115,18 @@ func (m *ProcManager) StartProcess(clientID, exe string, args ...string) (string
 		m.procMutex.Lock()
 		proc.status.ProcStatus = proto.Status_StatusStopped
 
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			proc.status.ExitStatus = int32(exitErr.ProcessState.ExitCode())
-			if osStatus, ok := proc.cmd.ProcessState.Sys().(syscall.WaitStatus); ok && osStatus.Signaled() {
-				proc.status.Signal = int32(osStatus.Signal())
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				proc.status.ExitStatus = int32(exitErr.ProcessState.ExitCode())
+				if osStatus, ok := proc.cmd.ProcessState.Sys().(syscall.WaitStatus); ok && osStatus.Signaled() {
+					proc.status.Signal = int32(osStatus.Signal())
+				}
+			} else {
+				// TRADE OFF
+				// not an exit error: set the exit code to 1 and log the error
+				proc.status.ExitStatus = 1
+				log.Printf("failed to run %q : %v", strings.Join(append([]string{exe}, args...), " "), err)
 			}
-		} else {
-			// TRADE OFF
-			// not an exit error: set the exit code to 1 and log the error
-			proc.status.ExitStatus = 1
-			log.Printf("failed to run %q : %v", strings.Join(append([]string{exe}, args...), " "), err)
 		}
 		m.procMutex.Unlock()
 	}()

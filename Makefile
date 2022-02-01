@@ -1,8 +1,8 @@
 CLIENTS := client1 client2
 
-.PHONY: build gen-proto gen-cert gen-cert-ca gen-cert-srv gen-cert-cln clean
+.PHONY: build gen-proto gen-cert gen-cert-ca gen-cert-srv gen-cert-cln test clean
 
-build:
+build: gen-proto
 	go build ./cmd/server
 	go build ./cmd/client
 	go build ./cmd/runner
@@ -23,11 +23,14 @@ gen-cert-srv: gen-cert-ca
 
 gen-cert-cln: gen-cert-ca
 	cd certs; \
-	for cln in $(CLIENTS); do echo $$cln; \
+	for cln in $(CLIENTS); do \
 	openssl genrsa -out $$cln.key 2048 && \
 	openssl req -new -key $$cln.key -subj "/CN=$$cln" -out $$cln.csr && \
 	openssl x509 -req -in $$cln.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out $$cln.crt -days 365; done
 
+test: build
+	go test ./tests/...
+
 clean:
 	rm -f server client runner
-	cd certs; rm -f ca.* client1.* client2.* server.*
+	cd certs; rm -f ca.* server.*; for cln in $(CLIENTS); do rm -f $$cln.*; done
