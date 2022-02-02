@@ -28,7 +28,7 @@ func main() {
 	case "cgr":
 		err = cgr()
 	default:
-		err = errors.New("invalid input")
+		err = fmt.Errorf("invalid command %q", os.Args[1])
 	}
 	if err != nil {
 		log.Fatal(err)
