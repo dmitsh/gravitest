@@ -22,7 +22,7 @@ func GetTLS(crt, key, caCrt string, isServer bool) (credentials.TransportCredent
 
 	capool := x509.NewCertPool()
 	if !capool.AppendCertsFromPEM(ca) {
-		return nil, fmt.Errorf("failed to add ca certificate")
+		return nil, errors.New("failed to add ca certificate")
 	}
 
 	tlsConfig := &tls.Config{
