@@ -56,11 +56,11 @@ func (r *BufReader) Read(p []byte) (int, error) {
 	defer r.writer.cond.L.Unlock()
 
 	if r.offs < len(r.writer.data) {
-		size := min(len(r.writer.data)-r.offs, len(p))
-		newoffs := r.offs + size
-		copy(p, r.writer.data[r.offs:newoffs])
-		r.offs = newoffs
-		return size, nil
+		
+		n := copy(p, r.writer.data[r.offs:])
+		r.off += n
+		return n
+
 	}
 
 	if r.writer.closed {
