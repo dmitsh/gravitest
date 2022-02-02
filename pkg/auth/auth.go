@@ -15,7 +15,7 @@ func GetTLS(crt, key, caCrt string, isServer bool) (credentials.TransportCredent
 		return nil, fmt.Errorf("failed to load certificate: %v", err)
 	}
 
-	ca, err := ioutil.ReadFile(caCrt)
+	ca, err := os.ReadFile(caCrt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load CA certificate: %v", err)
 	}
