@@ -25,13 +25,16 @@ func NewBufWriter() *BufWriter {
 }
 
 func (w *BufWriter) Write(p []byte) (int, error) {
+	w.Lock()
+	if w.closed {
+		w.Unlock()
+		return 0, io.ErrClosedPipe
+	}
 	if len(p) == 0 {
+		w.Unlock()
 		return 0, nil
 	}
-	data := make([]byte, len(p))
-	copy(data, p)
-	w.Lock()
-	w.data = append(w.data, data...)
+	w.data = append(w.data, p...)
 	w.Unlock()
 	w.cond.Broadcast()
 	return len(p), nil
@@ -56,11 +59,9 @@ func (r *BufReader) Read(p []byte) (int, error) {
 	defer r.writer.cond.L.Unlock()
 
 	if r.offs < len(r.writer.data) {
-		
 		n := copy(p, r.writer.data[r.offs:])
-		r.off += n
-		return n
-
+		r.offs += n
+		return n, nil
 	}
 
 	if r.writer.closed {

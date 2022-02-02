@@ -21,13 +21,13 @@ const (
 )
 
 var (
-	clientCrtPath, clientKeyPath, caKeyPath string
+	clientCrtPath, clientKeyPath, caCrtPath string
 )
 
 func init() {
 	flag.StringVar(&clientCrtPath, "cln.crt", "", "client certificate filepath")
 	flag.StringVar(&clientKeyPath, "cln.key", "", "client key filepath")
-	flag.StringVar(&caKeyPath, "ca.crt", "", "CA certificate path")
+	flag.StringVar(&caCrtPath, "ca.crt", "", "CA certificate path")
 }
 
 func main() {
@@ -54,8 +54,8 @@ func validate() (string, []string, error) {
 			return "", nil, fmt.Errorf("missing client key")
 		}
 	}
-	if len(caKeyPath) == 0 {
-		if caKeyPath = os.Getenv("CA_CERT"); len(caKeyPath) == 0 {
+	if len(caCrtPath) == 0 {
+		if caCrtPath = os.Getenv("CA_CERT"); len(caCrtPath) == 0 {
 			return "", nil, fmt.Errorf("missing CA certificate")
 		}
 	}
@@ -89,7 +89,7 @@ func exit(err error) {
 }
 
 func runClient(cmd string, args []string) error {
-	creds, err := auth.GetTLS(clientCrtPath, clientKeyPath, caKeyPath, false)
+	creds, err := auth.GetTLS(clientCrtPath, clientKeyPath, caCrtPath, false)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func runClient(cmd string, args []string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(resp.GetData()))
+			os.Stdout.Write(resp.GetData())
 		}
 	}
 	return nil

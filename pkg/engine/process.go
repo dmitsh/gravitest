@@ -30,7 +30,7 @@ type Process struct {
 	clientID string
 	cmd      *exec.Cmd
 	output   *BufWriter
-	status   *proto.Status
+	status   proto.Status
 }
 
 // TRADE OFF
@@ -82,7 +82,7 @@ func (m *ProcManager) StartProcess(clientID, exe string, args ...string) (string
 		clientID: clientID,
 		cmd:      exec.Command("./runner", append([]string{"start", "worker-" + uid, exe}, args...)...),
 		output:   NewBufWriter(),
-		status: &proto.Status{
+		status: proto.Status{
 			ProcStatus: proto.Status_StatusNotStarted,
 		},
 	}
@@ -153,7 +153,11 @@ func (m *ProcManager) StatusProcess(clientID, uid string) (*proto.Status, error)
 	if !ok || proc.clientID != clientID {
 		return nil, ErrProcNotFound
 	}
-	return proc.status, nil
+	return &proto.Status{
+		ProcStatus: proc.status.ProcStatus,
+		ExitStatus: proc.status.ExitStatus,
+		Signal:     proc.status.Signal,
+	}, nil
 }
 
 func (m *ProcManager) StreamOutput(clientID, uid string) (io.Reader, error) {

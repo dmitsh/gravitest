@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"google.golang.org/grpc"
@@ -133,9 +132,7 @@ func getClientID(ctx context.Context) string {
 	if p, ok := peer.FromContext(ctx); ok {
 		if mtls, ok := p.AuthInfo.(credentials.TLSInfo); ok {
 			for _, item := range mtls.State.PeerCertificates {
-				if txt := item.Subject.String(); strings.HasPrefix(txt, "CN=") {
-					clientID = txt[3:]
-				}
+				clientID = item.Subject.CommonName
 			}
 		}
 	}
