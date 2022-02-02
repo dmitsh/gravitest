@@ -1,8 +1,8 @@
 package engine
 
 import (
-	"bytes"
 	"errors"
+	"io"
 	"log"
 	"os/exec"
 	"strings"
@@ -29,7 +29,7 @@ var (
 type Process struct {
 	clientID string
 	cmd      *exec.Cmd
-	output   bytes.Buffer
+	output   *BufWriter
 	status   *proto.Status
 }
 
@@ -65,15 +65,6 @@ func (m *ProcManager) addProcess(uid string, proc *Process) {
 	m.procs[uid] = proc
 }
 
-func (m *ProcManager) GetProcessStatus(uid string) (*proto.Status, error) {
-	m.procMutex.Lock()
-	defer m.procMutex.Unlock()
-	if proc, ok := m.procs[uid]; ok {
-		return proc.status, nil
-	}
-	return nil, ErrProcNotFound
-}
-
 func (m *ProcManager) checkPermission(clientID string, ask int) error {
 	if perm, ok := m.perm[clientID]; !ok || (perm&ask == 0) {
 		return ErrPermDenied
@@ -90,13 +81,14 @@ func (m *ProcManager) StartProcess(clientID, exe string, args ...string) (string
 	proc := &Process{
 		clientID: clientID,
 		cmd:      exec.Command("./runner", append([]string{"start", "worker-" + uid, exe}, args...)...),
+		output:   NewBufWriter(),
 		status: &proto.Status{
 			ProcStatus: proto.Status_StatusNotStarted,
 		},
 	}
 
-	proc.cmd.Stdout = &proc.output
-	proc.cmd.Stderr = &proc.output
+	proc.cmd.Stdout = proc.output
+	proc.cmd.Stderr = proc.output
 	proc.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	m.addProcess(uid, proc)
@@ -114,6 +106,7 @@ func (m *ProcManager) StartProcess(clientID, exe string, args ...string) (string
 		err = proc.cmd.Wait()
 		m.procMutex.Lock()
 		proc.status.ProcStatus = proto.Status_StatusStopped
+		proc.output.Close()
 
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
@@ -163,7 +156,7 @@ func (m *ProcManager) StatusProcess(clientID, uid string) (*proto.Status, error)
 	return proc.status, nil
 }
 
-func (m *ProcManager) StreamOutput(clientID, uid string) (*bytes.Buffer, error) {
+func (m *ProcManager) StreamOutput(clientID, uid string) (io.Reader, error) {
 	if err := m.checkPermission(clientID, PermStream); err != nil {
 		return nil, err
 	}
@@ -173,5 +166,5 @@ func (m *ProcManager) StreamOutput(clientID, uid string) (*bytes.Buffer, error) 
 	if !ok || proc.clientID != clientID {
 		return nil, ErrProcNotFound
 	}
-	return &proc.output, nil
+	return NewBufReader(proc.output), nil
 }

@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -100,28 +100,28 @@ func (w *WorkerServer) StreamOutput(req *proto.JobId, srv proto.Worker_StreamOut
 	ctx := srv.Context()
 	clientID := getClientID(ctx)
 	log.Println("StreamOutput: clientID:", clientID)
-	buffer, err := w.procManager.StreamOutput(clientID, req.GetId())
+	reader, err := w.procManager.StreamOutput(clientID, req.GetId())
 	if err != nil {
 		return err
 	}
-	ticker := time.NewTicker(500 * time.Millisecond)
-	offs := 0
+	data := make([]byte, 512)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
-			size := buffer.Len() - offs
-			if size > 0 {
-				err = srv.Send(&proto.LogData{Data: buffer.Bytes()[offs:]})
+		default:
+			n, err := reader.Read(data)
+			if err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				return err
+			}
+			if n > 0 {
+				err = srv.Send(&proto.LogData{Data: data[:n]})
 				if err != nil {
 					return err
-				}
-				offs += size
-			} else {
-				// no more output - check if the process is still running
-				if status, err := w.procManager.GetProcessStatus(req.GetId()); err != nil || status.ProcStatus != proto.Status_StatusRunning {
-					return nil
 				}
 			}
 		}
