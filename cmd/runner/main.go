@@ -92,7 +92,7 @@ func cgr() error {
 }
 
 func writeInt(path string, value int) error {
-	return ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", value)), 0755)
+	return os.WriteFile(path, []byte(strconv.Itoa(value)), 0755)
 }
 
 func check(err error) {
